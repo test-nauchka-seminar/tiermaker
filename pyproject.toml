@@ -1,0 +1,17 @@
+[project]
+name = "tiermaker"
+version = "0.1.0"
+description = "Build and export large visual tier lists"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = ["fastapi>=0.116", "httpx>=0.28", "uvicorn>=0.35"]
+
+[project.scripts]
+app = "tiermaker:main"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120

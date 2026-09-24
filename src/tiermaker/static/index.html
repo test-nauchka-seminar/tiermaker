@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f1eee7">
+  <title>Tiermaker</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css?v=18">
+</head>
+<body>
+  <a class="skip" href="#workspace">К редактору</a>
+  <header>
+    <a class="brand" href="./" aria-label="Tiermaker — на главную"><span aria-hidden="true">≋</span> tiermaker</a>
+    <div class="header-actions">
+      <button class="quiet" id="saveSession">Сохранить проект</button>
+      <button class="format" id="exportWebp">WebP</button>
+      <button class="format" id="exportJpg">JPG · Discord</button>
+      <button class="primary format" id="exportPng">PNG</button>
+    </div>
+  </header>
+
+  <main id="workspace">
+    <aside class="sidebar">
+      <section>
+        <p class="eyebrow">ИСТОЧНИК</p>
+        <h1>Соберите свой тир-лист</h1>
+        <p class="muted">Загрузите HTML из Backloggd.</p>
+        <label class="drop" id="fileDrop">
+          <input id="fileInput" type="file" multiple accept=".html,.htm,.csv,.json,text/html,text/csv,application/json">
+          <span class="drop-icon" aria-hidden="true">↥</span>
+          <strong>Выберите файлы</strong>
+          <small>или перетащите сюда</small>
+        </label>
+        <p id="status" class="status" aria-live="polite">Файлы не загружены</p>
+      </section>
+
+      <section class="tools">
+        <p class="eyebrow">ДОСКА</p>
+        <button class="tool" id="addTier"><span>＋</span> Добавить тир</button>
+        <button class="tool" id="addItem"><span>◇</span> Добавить элемент</button>
+        <button class="tool" id="sortTiers"><span>А↓</span> Сортировать по названию</button>
+        <button class="tool" id="clearBoard"><span>×</span> Очистить доску</button>
+      </section>
+
+    </aside>
+
+    <section class="board-shell">
+      <div class="board-head">
+        <div>
+          <p class="eyebrow">РАБОЧЕЕ ПОЛОТНО</p>
+          <h2>Мой тир-лист</h2>
+        </div>
+        <div class="board-actions">
+          <div class="stats"><strong id="placedCount">0</strong> размещено <span>·</span> <strong id="totalCount">0</strong> всего</div>
+          <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" name="search" autocomplete="off" placeholder="Найти во всём тир-листе…" aria-label="Найти во всём тир-листе"></label>
+        </div>
+      </div>
+      <div id="hiddenTiers" class="hidden-tiers" hidden></div>
+      <div id="tiers" class="tiers"></div>
+
+      <section class="pool">
+        <div class="pool-head">
+          <div><p class="eyebrow">БЕЗ КАТЕГОРИИ</p><h2>Все элементы <span id="poolCount">0</span></h2></div>
+        </div>
+        <div id="pool" class="cards drop-zone" data-zone="pool"></div>
+        <p id="emptyPool" class="empty">Загрузите Backloggd HTML, CSV или добавьте первый элемент вручную.</p>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="itemDialog">
+    <form method="dialog" id="itemForm">
+      <div class="dialog-head"><div><p class="eyebrow" id="itemDialogEyebrow">НОВЫЙ ЭЛЕМЕНТ</p><h2 id="itemDialogTitle">Добавить на доску</h2></div><button class="icon" value="cancel" aria-label="Закрыть">×</button></div>
+      <label>Название<input id="itemTitle" name="title" required autocomplete="off" placeholder="Например, Disco Elysium…"></label>
+      <label>Ссылка<input id="itemUrl" name="url" type="url" autocomplete="off" placeholder="https://…"></label>
+      <label>Ссылка на изображение<input id="itemImage" name="image" type="url" autocomplete="off" placeholder="https://…"></label>
+      <button class="primary wide" id="itemSubmit" value="default">Добавить элемент</button>
+    </form>
+  </dialog>
+  <canvas id="exportCanvas" hidden></canvas>
+  <script src="./app.js?v=29" defer></script>
+</body>
+</html>
