@@ -3,7 +3,7 @@ const STORAGE_KEY = "tiermaker-session-v1";
 const palette = ["#f47b6d", "#f2a65a", "#f2cf63", "#a8d67b", "#75c9b7", "#87a7e8"];
 const titleOrder = new Intl.Collator("ru", {numeric: true, sensitivity: "base"});
 let tiers = ["S", "A", "B", "C", "D", "E"].map((name, index) => ({id: crypto.randomUUID(), name, color: palette[index], items: []}));
-let pool = [], draggedId = null, dirty = false, tierMenu = null, editingItem = null;
+let pool = [], draggedId = null, dirty = false, tierMenu = null, menuOpener = null, editingItem = null;
 const cardElements = new Map();
 
 const proxy = url => url ? (location.protocol === "file:" ? url : `/api/image?url=${encodeURIComponent(url)}`) : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='176' height='244'%3E%3Crect width='100%25' height='100%25' fill='%23d9d5cc'/%3E%3C/svg%3E";
@@ -31,12 +31,22 @@ function card(item) {
   const el = document.createElement(item.url ? "a" : "div");
   el.className = "card"; el.draggable = true; el.dataset.id = item.id; el.dataset.search = item.title.toLocaleLowerCase(); el.tabIndex = 0;
   if (item.url) { el.href = item.url; el.target = "_blank"; el.rel = "noreferrer"; }
-  const img = new Image(88, 88); img.src = preview(item.image); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+  const img = new Image(88, 88); img.src = preview(item.image); img.alt = ""; img.loading = "lazy"; img.decoding = "async"; img.addEventListener("error", () => img.style.opacity = 0, {once: true});
   el.title = item.title; el.setAttribute("aria-label", item.title); el.append(img);
   el.addEventListener("dragstart", event => { draggedId = item.id; el.classList.add("dragging"); event.dataTransfer.effectAllowed = "move"; });
   el.addEventListener("dragend", () => { draggedId = null; el.classList.remove("dragging"); document.querySelectorAll(".drag-over").forEach(node => node.classList.remove("drag-over")); });
   el.addEventListener("click", event => { if (el.dataset.dragged === "true") event.preventDefault(); });
   el.addEventListener("contextmenu", event => { event.preventDefault(); showTierMenu(item, event.clientX, event.clientY); });
+  el.addEventListener("keydown", event => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const visible = tiers.filter(tier => !tier.hidden), rect = el.getBoundingClientRect();
+    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) showTierMenu(item, rect.left, rect.bottom + 4);
+    else if (event.key === "Delete") removeItem(item);
+    else if (event.key === "0") { moveItem(item.id, "pool"); el.focus({preventScroll: true}); }
+    else if (/^[1-9]$/.test(event.key) && visible[event.key - 1]) { moveItem(item.id, visible[event.key - 1].id); el.focus({preventScroll: true}); }
+    else return;
+    event.preventDefault();
+  });
   cardElements.set(item.id, el);
   updateNewBadge(item);
   return el;
@@ -47,7 +57,15 @@ function updateNewBadge(item) {
   if (el && item.isNew) { const badge = document.createElement("span"); badge.className = "new-badge"; badge.textContent = "NEW"; el.append(badge); }
 }
 
-function closeTierMenu() { tierMenu?.remove(); tierMenu = null; }
+function closeTierMenu() {
+  if (tierMenu?.contains(document.activeElement)) menuOpener?.focus({preventScroll: true});
+  tierMenu?.remove(); tierMenu = null;
+}
+
+function removeItem(item) {
+  if (!confirm(`Удалить «${item.title}» из тир-листа?`)) return;
+  pool = pool.filter(value => value.id !== item.id); tiers.forEach(tier => tier.items = tier.items.filter(value => value.id !== item.id)); cardElements.delete(item.id); dirty = true; closeTierMenu(); render();
+}
 
 function openItemDialog(item = null) {
   editingItem = item; $("itemForm").reset(); $("itemDialogEyebrow").textContent = item ? "РЕДАКТИРОВАНИЕ" : "НОВЫЙ ЭЛЕМЕНТ"; $("itemDialogTitle").textContent = item ? "Изменить элемент" : "Добавить на доску"; $("itemSubmit").textContent = item ? "Сохранить изменения" : "Добавить элемент";
@@ -56,22 +74,29 @@ function openItemDialog(item = null) {
 }
 
 function showTierMenu(item, x, y) {
-  closeTierMenu();
+  closeTierMenu(); menuOpener = cardElements.get(item.id);
   tierMenu = document.createElement("div"); tierMenu.className = "tier-menu"; tierMenu.setAttribute("role", "menu");
   const actions = document.createElement("p"); actions.textContent = "Действия"; tierMenu.append(actions);
   const edit = document.createElement("button"); edit.type = "button"; edit.setAttribute("role", "menuitem"); edit.innerHTML = '<i style="--tier-color:#87a7e8"></i><span>Редактировать</span><b>✎</b>'; edit.addEventListener("click", () => { closeTierMenu(); openItemDialog(item); }); tierMenu.append(edit);
   const mark = document.createElement("button"); mark.type = "button"; mark.setAttribute("role", "menuitem"); mark.innerHTML = `<i style="--tier-color:#f6cf55"></i><span></span><b>${item.isNew ? "✓" : ""}</b>`; mark.querySelector("span").textContent = item.isNew ? "Убрать отметку NEW" : "Отметить как NEW";
   mark.addEventListener("click", () => { item.isNew = !item.isNew; updateNewBadge(item); dirty = true; saveState(); closeTierMenu(); }); tierMenu.append(mark);
-  const remove = document.createElement("button"); remove.type = "button"; remove.className = "danger"; remove.setAttribute("role", "menuitem"); remove.innerHTML = '<i style="--tier-color:#f47b6d"></i><span>Удалить</span><b>×</b>'; remove.addEventListener("click", () => { if (!confirm(`Удалить «${item.title}» из тир-листа?`)) return; pool = pool.filter(value => value.id !== item.id); tiers.forEach(tier => tier.items = tier.items.filter(value => value.id !== item.id)); cardElements.delete(item.id); dirty = true; closeTierMenu(); render(); }); tierMenu.append(remove);
+  const remove = document.createElement("button"); remove.type = "button"; remove.className = "danger"; remove.setAttribute("role", "menuitem"); remove.innerHTML = '<i style="--tier-color:#f47b6d"></i><span>Удалить</span><b>×</b>'; remove.addEventListener("click", () => removeItem(item)); tierMenu.append(remove);
   const title = document.createElement("p"); title.textContent = "Отправить в тир"; tierMenu.append(title);
-  const destinations = [...tiers, {id: "pool", name: "Без категории", color: "#b9b5ac"}];
+  const destinations = [...tiers, {id: "pool", name: "Без категории", color: "#b9b5ac"}], visible = tiers.filter(tier => !tier.hidden);
   destinations.forEach(tier => {
     const button = document.createElement("button"), current = tier.id === "pool" ? pool.some(value => value.id === item.id) : tier.items.some(value => value.id === item.id);
+    const key = tier.id === "pool" ? "0" : visible.indexOf(tier) >= 0 && visible.indexOf(tier) < 9 ? String(visible.indexOf(tier) + 1) : "";
     button.type = "button"; button.setAttribute("role", "menuitem"); button.disabled = current;
-    button.innerHTML = `<i style="--tier-color:${tier.color}"></i><span></span><b>${current ? "✓" : ""}</b>`;
+    button.innerHTML = `<i style="--tier-color:${tier.color}"></i><span></span><b>${current ? "✓" : key}</b>`;
     button.querySelector("span").textContent = tier.name;
     button.addEventListener("click", () => { closeTierMenu(); moveItem(item.id, tier.id); });
     tierMenu.append(button);
+  });
+  tierMenu.addEventListener("keydown", event => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const buttons = [...tierMenu.querySelectorAll("button:not(:disabled)")], index = buttons.indexOf(document.activeElement);
+    buttons.at((index + (event.key === "ArrowDown" ? 1 : -1)) % buttons.length)?.focus();
   });
   document.body.append(tierMenu);
   const rect = tierMenu.getBoundingClientRect();
@@ -114,12 +139,15 @@ function renderPool() {
 
 function filterCards() {
   const query = $("search").value.trim().toLocaleLowerCase();
-  cardElements.forEach(element => element.hidden = !element.dataset.search.includes(query));
+  let found = 0;
+  cardElements.forEach(element => { element.hidden = !element.dataset.search.includes(query); found += !element.hidden; });
+  $("searchCount").hidden = !query; $("searchCount").textContent = `${found} найдено`;
 }
 
 function updateCounts() {
   $("emptyPool").hidden = pool.length > 0; $("poolCount").textContent = pool.length;
   $("placedCount").textContent = tiers.reduce((sum, tier) => sum + tier.items.length, 0); $("totalCount").textContent = allItems().length;
+  tiers.forEach(tier => { const count = document.querySelector(`[data-tier="${CSS.escape(tier.id)}"] .tier-count`); if (count) count.textContent = tier.items.length || ""; });
 }
 
 function render() {
@@ -137,13 +165,14 @@ function render() {
     name.addEventListener("keydown", event => { if (event.key === "Enter") event.preventDefault(); });
     name.addEventListener("input", () => { tier.name = name.value; fitName(); dirty = true; saveState(); });
     const controls = document.createElement("div"); controls.className = "tier-controls";
-    const visibility = document.createElement("button"); visibility.textContent = "◉"; visibility.title = "Скрыть тир"; visibility.setAttribute("aria-label", `Скрыть тир ${tier.name}`);
+    const visibility = document.createElement("button"); visibility.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c5 0 9 5 9 7a9 9 0 0 1-2.2 3.2M6.6 6.6C4.4 8 3 10.3 3 12c0 2 4 7 9 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>'; visibility.title = "Скрыть тир (не попадёт в экспорт)"; visibility.setAttribute("aria-label", `Скрыть тир ${tier.name}`);
     visibility.addEventListener("click", () => { tier.hidden = true; dirty = true; render(); });
     const color = document.createElement("input"); color.type = "color"; color.value = tier.color; color.setAttribute("aria-label", `Цвет тира ${tier.name}`);
     color.addEventListener("input", () => { tier.color = color.value; meta.style.setProperty("--tier-color", tier.color); dirty = true; saveState(); });
-    const remove = document.createElement("button"); remove.textContent = "×"; remove.setAttribute("aria-label", `Удалить тир ${tier.name}`);
+    const remove = document.createElement("button"); remove.textContent = "×"; remove.title = "Удалить тир"; remove.setAttribute("aria-label", `Удалить тир ${tier.name}`);
     remove.addEventListener("click", () => { if (tier.items.length && !confirm(`Переместить ${tier.items.length} элементов в «Без категории» и удалить тир?`)) return; pool.push(...tier.items); tiers = tiers.filter(value => value.id !== tier.id); dirty = true; render(); });
-    controls.append(visibility, color, remove); meta.append(name, controls);
+    const count = document.createElement("span"); count.className = "tier-count"; count.setAttribute("aria-hidden", "true");
+    controls.append(visibility, color, remove); meta.append(count, name, controls);
     const cards = document.createElement("div"); cards.className = "cards drop-zone"; cards.dataset.zone = tier.id; cards.append(...tier.items.map(card)); bindZone(cards);
     row.append(meta, cards); return row;
   }));
@@ -241,8 +270,8 @@ async function exportImage(format) {
   const formats = {png: {id: "exportPng", mime: "image/png", name: "tier-list.png", label: "PNG"}, jpg: {id: "exportJpg", mime: "image/jpeg", name: "tier-list.jpg", label: "JPG · Discord", quality: .9}, webp: {id: "exportWebp", mime: "image/webp", name: "tier-list.webp", label: "WebP", quality: .9}}, selected = formats[format];
   const buttons = Object.values(formats).map(value => $(value.id)); buttons.forEach(button => button.disabled = true); $(selected.id).textContent = "Готовим…";
   const width = 1800, scale = 2, labelWidth = 120, cellSize = 92, gutter = 1, tileSize = cellSize - gutter * 2, cols = Math.floor((width - labelWidth) / cellSize);
-  const newItems = exportedTiers.flatMap(tier => tier.items.filter(item => item.isNew).map(item => ({...item, tierName: tier.name}))), newIndexes = new Map(newItems.map((item, index) => [item.id, index + 1]));
-  const panelCols = 8, panelRowHeight = 190, panelHeight = newItems.length ? 80 + Math.ceil(newItems.length / panelCols) * panelRowHeight : 0;
+  const newItems = exportedTiers.flatMap(tier => tier.items.filter(item => item.isNew).map(item => ({...item, tierName: tier.name, tierColor: tier.color}))), newIndexes = new Map(newItems.map((item, index) => [item.id, index + 1]));
+  const panelCols = 8, panelRowHeight = 236, panelHeight = newItems.length ? 80 + Math.ceil(newItems.length / panelCols) * panelRowHeight : 0;
   const heights = exportedTiers.map(tier => Math.max(1, Math.ceil(tier.items.length / cols)) * cellSize), height = panelHeight + heights.reduce((sum, value) => sum + value, 0);
   const canvas = $("exportCanvas"), ctx = canvas.getContext("2d"); canvas.width = width * scale; canvas.height = height * scale; ctx.scale(scale, scale); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.fillStyle = "#f1eee7"; ctx.fillRect(0, 0, width, height);
   if (newItems.length) {
@@ -255,7 +284,12 @@ async function exportImage(format) {
         ctx.drawImage(image, sx, sy, sourceSize, sourceSize, coverX, cardY, 128, 128);
       } catch { ctx.fillStyle = "#dedad1"; ctx.fillRect(coverX, cardY, 128, 128); }
       ctx.strokeStyle = "#ff2f70"; ctx.lineWidth = 6; ctx.strokeRect(coverX + 3, cardY + 3, 122, 122); ctx.fillStyle = "#ff2f70"; ctx.beginPath(); ctx.arc(coverX + 16, cardY + 16, 16, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#191916"; ctx.lineWidth = 3; ctx.stroke();
-      ctx.fillStyle = "#fff"; ctx.font = "1000 14px system-ui"; ctx.textAlign = "center"; ctx.fillText(String(index + 1), coverX + 16, cardY + 17); ctx.font = "800 15px system-ui"; ctx.fillText(item.title, cardX + 105, cardY + 148, 205); ctx.fillStyle = "#ff7da6"; ctx.font = "800 11px system-ui"; ctx.fillText(item.tierName, cardX + 105, cardY + 168, 205);
+      ctx.fillStyle = "#fff"; ctx.font = "1000 14px system-ui"; ctx.textAlign = "center"; ctx.fillText(String(index + 1), coverX + 16, cardY + 17); ctx.font = "800 17px system-ui"; ctx.fillText(item.title, cardX + 105, cardY + 150, 205);
+      // Плашка тира в его цвете — видно издалека, куда попала игра
+      const tierLabel = item.tierName.trim() || "Без имени"; ctx.font = "900 20px system-ui";
+      const chipWidth = Math.min(205, Math.max(48, ctx.measureText(tierLabel).width + 28));
+      ctx.fillStyle = item.tierColor; ctx.beginPath(); ctx.roundRect(cardX + 105 - chipWidth / 2, cardY + 166, chipWidth, 34, 6); ctx.fill();
+      ctx.fillStyle = "#191916"; ctx.fillText(tierLabel, cardX + 105, cardY + 184, chipWidth - 16);
     }
   }
   let y = panelHeight;
@@ -272,8 +306,10 @@ async function exportImage(format) {
         ctx.drawImage(image, sx, sy, sourceSize, sourceSize, x + gutter, iy + gutter, tileSize, tileSize);
       } catch { ctx.fillStyle = "#dedad1"; ctx.fillRect(x + gutter, iy + gutter, tileSize, tileSize); }
       const newIndex = newIndexes.get(item.id);
+      // Если есть новинки, остальные обложки приглушаются, чтобы новые было видно сразу
+      if (!newIndex && newItems.length) { ctx.fillStyle = "rgba(250,248,243,.62)"; ctx.fillRect(x + gutter, iy + gutter, tileSize, tileSize); }
       if (newIndex) {
-        ctx.save(); ctx.strokeStyle = "#ff2f70"; ctx.lineWidth = 7; ctx.strokeRect(x + 4, iy + 4, cellSize - 8, cellSize - 8); ctx.fillStyle = "#ff2f70"; ctx.beginPath(); ctx.arc(x + 18, iy + 18, 16, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#191916"; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = "#fff"; ctx.font = "1000 14px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(newIndex), x + 18, iy + 19); ctx.restore();
+        ctx.save(); ctx.strokeStyle = "#ff2f70"; ctx.lineWidth = 7; ctx.strokeRect(x + 4, iy + 4, cellSize - 8, cellSize - 8); ctx.fillStyle = "#ff2f70"; ctx.beginPath(); ctx.arc(x + 22, iy + 22, 20, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#191916"; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = "#fff"; ctx.font = "1000 19px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(newIndex), x + 22, iy + 23); ctx.restore();
       }
     }
     y += rowH;
@@ -310,4 +346,25 @@ $("exportWebp").addEventListener("click", () => exportImage("webp"));
 addEventListener("pointerdown", event => { if (!tierMenu?.contains(event.target)) closeTierMenu(); });
 addEventListener("scroll", closeTierMenu, true);
 addEventListener("keydown", event => { if (event.key === "Escape") closeTierMenu(); });
+addEventListener("keydown", event => {
+  const mod = event.ctrlKey || event.metaKey, typing = event.target.closest?.("input, textarea, [contenteditable]"), code = event.code;
+  if (mod && code === "KeyS") { event.preventDefault(); $("saveSession").click(); return; }
+  if (mod && code === "KeyK") { event.preventDefault(); $("search").focus(); $("search").select(); return; }
+  if (typing || mod || event.altKey || $("itemDialog").open) return;
+  if (event.key === "/") { event.preventDefault(); $("search").focus(); $("search").select(); }
+  else if (code === "KeyN") { event.preventDefault(); openItemDialog(); }
+  else if (code === "KeyT") { event.preventDefault(); $("addTier").click(); }
+});
+$("search").addEventListener("keydown", event => { if (event.key === "Escape" && !event.target.value) event.target.blur(); });
+// Файлы можно бросить в любое место страницы, а не только в зону импорта
+let fileDragDepth = 0;
+const hasFiles = event => event.dataTransfer?.types.includes("Files");
+addEventListener("dragenter", event => { if (hasFiles(event)) { fileDragDepth++; document.body.classList.add("file-over"); } });
+addEventListener("dragleave", event => { if (hasFiles(event) && --fileDragDepth <= 0) { fileDragDepth = 0; document.body.classList.remove("file-over"); } });
+addEventListener("dragover", event => { if (hasFiles(event)) event.preventDefault(); });
+addEventListener("drop", event => {
+  if (!hasFiles(event)) return;
+  fileDragDepth = 0; document.body.classList.remove("file-over"); event.preventDefault();
+  if (!$("fileDrop").contains(event.target)) handleFiles([...event.dataTransfer.files]);
+});
 addEventListener("beforeunload", event => { if (dirty) event.preventDefault(); });

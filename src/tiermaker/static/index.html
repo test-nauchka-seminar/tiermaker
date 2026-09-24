@@ -3,32 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f1eee7">
+  <meta name="theme-color" content="#101014">
   <title>Tiermaker</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=18">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="./style.css?v=19">
 </head>
 <body>
   <a class="skip" href="#workspace">К редактору</a>
   <header>
-    <a class="brand" href="./" aria-label="Tiermaker — на главную"><span aria-hidden="true">≋</span> tiermaker</a>
+    <a class="brand" href="./" aria-label="Tiermaker — на главную"><img src="./favicon.svg" alt="" width="24" height="24"> tiermaker</a>
     <div class="header-actions">
-      <button class="quiet" id="saveSession">Сохранить проект</button>
-      <button class="format" id="exportWebp">WebP</button>
-      <button class="format" id="exportJpg">JPG · Discord</button>
-      <button class="primary format" id="exportPng">PNG</button>
+      <button class="secondary" id="saveSession" title="Скачать проект в JSON (Ctrl+S)">Сохранить проект <kbd>Ctrl S</kbd></button>
+      <div class="export" role="group" aria-label="Экспорт изображения">
+        <span class="export-label">Экспорт</span>
+        <button class="format" id="exportWebp">WebP</button>
+        <button class="format" id="exportJpg">JPG · Discord</button>
+        <button class="primary format" id="exportPng">PNG</button>
+      </div>
     </div>
   </header>
 
   <main id="workspace">
     <aside class="sidebar">
       <section>
-        <p class="eyebrow">ИСТОЧНИК</p>
+        <p class="eyebrow">Источник</p>
         <h1>Соберите свой тир-лист</h1>
-        <p class="muted">Загрузите HTML из Backloggd.</p>
+        <p class="muted">Backloggd HTML, CSV или сохранённый проект JSON. Файлы можно бросить в любое место страницы.</p>
         <label class="drop" id="fileDrop">
           <input id="fileInput" type="file" multiple accept=".html,.htm,.csv,.json,text/html,text/csv,application/json">
-          <span class="drop-icon" aria-hidden="true">↥</span>
+          <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           <strong>Выберите файлы</strong>
           <small>или перетащите сюда</small>
         </label>
@@ -36,24 +42,39 @@
       </section>
 
       <section class="tools">
-        <p class="eyebrow">ДОСКА</p>
-        <button class="tool" id="addTier"><span>＋</span> Добавить тир</button>
-        <button class="tool" id="addItem"><span>◇</span> Добавить элемент</button>
-        <button class="tool" id="sortTiers"><span>А↓</span> Сортировать по названию</button>
-        <button class="tool" id="clearBoard"><span>×</span> Очистить доску</button>
+        <p class="eyebrow">Доска</p>
+        <button class="tool" id="addTier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7m9-3v6m-3-3h6"/></svg> Добавить тир <kbd>T</kbd></button>
+        <button class="tool" id="addItem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Добавить элемент <kbd>N</kbd></button>
+        <button class="tool" id="sortTiers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16m0 0-3-3m3 3 3-3M14 5h6l-6 6h6m-6 3h6m-6 4h4"/></svg> Сортировать по названию</button>
+        <button class="tool danger" id="clearBoard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg> Очистить доску</button>
       </section>
 
+      <section class="shortcuts">
+        <p class="eyebrow">Клавиши</p>
+        <dl>
+          <dt><kbd>/</kbd></dt><dd>Поиск</dd>
+          <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Отправить карточку в тир</dd>
+          <dt><kbd>0</kbd></dt><dd>Убрать в «Без категории»</dd>
+          <dt><kbd>Shift F10</kbd></dt><dd>Меню карточки (или ПКМ)</dd>
+          <dt><kbd>Del</kbd></dt><dd>Удалить карточку</dd>
+        </dl>
+      </section>
     </aside>
 
     <section class="board-shell">
       <div class="board-head">
         <div>
-          <p class="eyebrow">РАБОЧЕЕ ПОЛОТНО</p>
+          <p class="eyebrow">Рабочее полотно</p>
           <h2>Мой тир-лист</h2>
         </div>
         <div class="board-actions">
           <div class="stats"><strong id="placedCount">0</strong> размещено <span>·</span> <strong id="totalCount">0</strong> всего</div>
-          <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" name="search" autocomplete="off" placeholder="Найти во всём тир-листе…" aria-label="Найти во всём тир-листе"></label>
+          <label class="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>
+            <input id="search" type="search" name="search" autocomplete="off" placeholder="Найти во всём тир-листе…" aria-label="Найти во всём тир-листе">
+            <span id="searchCount" class="search-count" aria-live="polite" hidden></span>
+            <kbd>/</kbd>
+          </label>
         </div>
       </div>
       <div id="hiddenTiers" class="hidden-tiers" hidden></div>
@@ -61,7 +82,8 @@
 
       <section class="pool">
         <div class="pool-head">
-          <div><p class="eyebrow">БЕЗ КАТЕГОРИИ</p><h2>Все элементы <span id="poolCount">0</span></h2></div>
+          <div><p class="eyebrow">Без категории</p><h2>Все элементы <span id="poolCount">0</span></h2></div>
+          <p class="hint">Перетащите карточку в тир, нажмите на ней правую кнопку мыши или цифру тира</p>
         </div>
         <div id="pool" class="cards drop-zone" data-zone="pool"></div>
         <p id="emptyPool" class="empty">Загрузите Backloggd HTML, CSV или добавьте первый элемент вручную.</p>
@@ -72,13 +94,13 @@
   <dialog id="itemDialog">
     <form method="dialog" id="itemForm">
       <div class="dialog-head"><div><p class="eyebrow" id="itemDialogEyebrow">НОВЫЙ ЭЛЕМЕНТ</p><h2 id="itemDialogTitle">Добавить на доску</h2></div><button class="icon" value="cancel" aria-label="Закрыть">×</button></div>
-      <label>Название<input id="itemTitle" name="title" required autocomplete="off" placeholder="Например, Disco Elysium…"></label>
+      <label>Название<input id="itemTitle" name="title" autofocus required autocomplete="off" placeholder="Например, Disco Elysium…"></label>
       <label>Ссылка<input id="itemUrl" name="url" type="url" autocomplete="off" placeholder="https://…"></label>
       <label>Ссылка на изображение<input id="itemImage" name="image" type="url" autocomplete="off" placeholder="https://…"></label>
       <button class="primary wide" id="itemSubmit" value="default">Добавить элемент</button>
     </form>
   </dialog>
   <canvas id="exportCanvas" hidden></canvas>
-  <script src="./app.js?v=29" defer></script>
+  <script src="./app.js?v=31" defer></script>
 </body>
 </html>
