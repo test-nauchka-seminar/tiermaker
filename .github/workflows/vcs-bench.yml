@@ -1,0 +1,17 @@
+name: vcs-bench
+on:
+  pull_request:
+    branches: [vcs-bench/main]
+  merge_group:
+    branches: [vcs-bench/main]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulated test suite
+        run: |
+          sleep 60
+          if [ "$GITHUB_EVENT_NAME" = merge_group ] && grep -rqs BREAK agents/; then
+            echo "integration break"; exit 1
+          fi
